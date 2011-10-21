@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+  font-family: helvetica, arial, sans-serif;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+a {
+  color:#0000CC;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.open_box {
+  display: block;
+  overflow: hidden;
+  margin-right: 4px;
+  margin-top: 2px;
+  height: 12px;
+  width: 12px;
+  float: left;
+  clear: left;
+  background-image: url(sprite_arrows.gif);
+  background-position: 0px -24px;
+  cursor: pointer;
+}
+
+.opened .open_box {
+  background-position:-12px -24px;
+}
+
+.item {
+  padding: 2px 0px;
+}
+
+.item_title {
+  display: block;
+  min-width: 300px;
+  padding-left: 15px;
+  cursor: pointer;
+}
+
+.item_desc {
+  min-width: 500px;
+  height: 0px;
+  display: block;
+  border: none;
+  padding: 0px;
+  margin: 0px;
+  -webkit-transition: height 0.2s ease-out;
+}
+
+#title {
+  display: block;
+  margin-left: auto;
+}
+
+.error {
+  white-space: nowrap;
+  color: red;
+}
+
+.more {
+  display: block;
+  text-align: right;
+  padding-top: 20px;
+  padding-right: 10px;
+  color: #88C;
+}
+
+</style>
+<script id="iframe_script">
+function reportHeight() {
+  var msg = JSON.stringify({type:"size", size:document.body.offsetHeight});
+  parent.postMessage(msg, "*");
+}
+
+function frameLoaded() {
+  var links = document.getElementsByTagName("A");
+  for (i = 0; i < links.length; i++) {
+    var class = links[i].className;
+    if (class != "item_title" && class != "open_box") {
+      links[i].addEventListener("click", showStory);
+    }
+  }
+  window.addEventListener("message", messageHandler);
+}
+
+function showStory(event) {
+  var href = event.currentTarget.href;
+  parent.postMessage(JSON.stringify({type:"show", url:href}), "*");
+  event.preventDefault();
+}
+
+function messageHandler(event) {
+  reportHeight();
+}
+
+</script>
+<script>
+// Feed URL.
+var feedUrl = 'http://news.google.com/news?pz=1&cf=all&ned=cn&hl=zh-CN&output=rss';
+
+// The XMLHttpRequest object that tries to load and parse the feed.
+var req;
+
+function main() {
+  req = new XMLHttpRequest();
+  req.onload = handleResponse;
+  req.onerror = handleError;
+  req.open("GET", feedUrl, true);
+  req.send(null);
+}
+
+// Handles feed parsing errors.
+function handleFeedParsingFailed(error) {
+  var feed = document.getElementById("feed");
+  feed.className = "error";
+  feed.innerText = "Error: " + error;
+}
+
+// Handles errors during the XMLHttpRequest.
+function handleError() {
+  handleFeedParsingFailed('Failed to fetch RSS feed.');
+}
+
+// Handles parsing the feed data we got back from XMLHttpRequest.
+function handleResponse() {
+  var doc = req.responseXML;
+  if (!doc) {
+    handleFeedParsingFailed("Not a valid feed.");
+    return;
+  }
+  buildPreview(doc);
+}
+
+// The maximum number of feed items to show in the preview.
+var maxFeedItems = 10;
+
+// Where the more stories link should navigate to.
+var moreStoriesUrl;
+
+function buildPreview(doc) {
+  // Get the link to the feed source.
+  var link = doc.getElementsByTagName("link");
+  var parentTag = link[0].parentNode.tagName;
+  if (parentTag != "item" && parentTag != "entry") {
+    moreStoriesUrl = link[0].textContent;
+  }
+
+  // Setup the title image.
+  var images = doc.getElementsByTagName("image");
+  var titleImg;
+  if (images.length != 0) {
+    var urls = images[0].getElementsByTagName("url");
+    if (urls.length != 0) {
+      titleImg = urls[0].textContent;
+    }
+  }
+  var img = document.getElementById("title");
+  // Listen for mouse and key events
+  if (titleImg) {
+    img.src = titleImg;
+    if (moreStoriesUrl) {
+      document.getElementById("title_a").addEventListener("click",                                                       moreStories);
+      document.getElementById("title_a").addEventListener("keydown",
+                                         function(event) {
+                                           if (event.keyCode == 13) {
+                                             moreStories(event);
+                                           }});
+    }
+  } else {
+    img.style.display = "none";
+  }
+
+  var feed = document.getElementById("feed");
+  // Set ARIA role indicating the feed element has a tree structure
+  feed.setAttribute("role", "tree");
+
+  var entries = doc.getElementsByTagName('entry');
+  if (entries.length == 0) {
+    entries = doc.getElementsByTagName('item');
+  }
+  var count = Math.min(entries.length, maxFeedItems);
+  for (var i = 0; i < count; i++) {
+    item = entries.item(i);
+
+    // Grab the title for the feed item.
+    var itemTitle = item.getElementsByTagName('title')[0];
+    if (itemTitle) {
+      itemTitle = itemTitle.textContent;
+    } else {
+      itemTitle = "Unknown title";
+    }
+
+    var itemLink = item.getElementsByTagName('link')[0];
+    if (itemLink) {
+        itemLink = itemLink.textContent;
+    } else {
+        itemLink = "";
+    }
+
+
+    var item = document.createElement("div");
+    item.className = "item";
+    var box = document.createElement("div");
+    box.className = "open_box";
+    // Disable focusing on box image separately from rest of tree item
+    box.tabIndex = -1;
+    item.appendChild(box);
+
+    var title = document.createElement("a");
+    title.className = "item_title";
+    // Give title an ID for use with ARIA
+    title.id = "item" + i;
+    title.innerText = itemTitle;
+    title.href = itemLink;
+    title.addEventListener("click", showDesc);
+    // Enable keyboard focus on the item title element
+    title.tabIndex = 0;
+    // Set ARIA role role indicating that the title element is a node in the
+    // tree structure
+    title.setAttribute("role", "treeitem");
+    // Set the ARIA state indicating this tree item is currently collapsed.
+    title.setAttribute("aria-expanded", "false");
+    // Set ARIA property indicating that all items are at the same hierarchical
+    // level (no nesting)
+    title.setAttribute("aria-level", "1");
+    item.appendChild(title);
+
+    feed.appendChild(item);
+
+  }
+
+  if (moreStoriesUrl) {
+    var more = document.createElement("a");
+    more.className = "more";
+    more.innerText = "More stories \u00BB";
+    more.tabIndex = 0;
+    more.addEventListener("click", moreStories);
+    more.addEventListener("keydown", function(event) {
+                                       if (event.keyCode == 13) {
+                                         moreStories(event);
+                                       }});
+    feed.appendChild(more);
+  }
+}
+
+// Show |url| in a new tab.
+function showUrl(url) {
+  // Only allow http and https URLs.
+  if (url.indexOf("http:") != 0 && url.indexOf("https:") != 0) {
+    return;
+  }
+  chrome.tabs.create({url: url});
+}
+
+function moreStories(event) {
+  showUrl(moreStoriesUrl);
+}
+
+function showDesc(event) {
+    var url = event.currentTarget.href;
+    showUrl(url);
+    return false;
+}
+
+</script>
+</head>
+<body onload="main();">
+<a id="title_a" tabIndex="0"><img id='title' alt="Google News logo"></a>
+<div id="feed"></div>
+</body>
+</html>
+

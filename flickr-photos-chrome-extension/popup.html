@@ -1,0 +1,57 @@
+<style>
+body {
+  min-width:357px;
+  overflow-x:hidden;
+}
+
+img {
+  margin:5px;
+  border:2px solid black;
+  vertical-align:middle;
+  width:75px;
+  height:75px;
+}
+</style>
+
+<script>
+var req = new XMLHttpRequest();
+req.open(
+    "GET",
+    "http://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=fb7637d2239dc0ddb6324528bcea71c8&user_id=68911174%40N06&per_page=8&format=rest&auth_token=72157627817360563-abe3737911328350&api_sig=8bf126bdae5d0dc963b9e6b3e643eedd",
+    true);
+req.onload = showPhotos;
+req.send(null);
+
+function showPhotos() {
+    var photos = req.responseXML.getElementsByTagName("photo");
+
+    for (var i = 0, photo; photo = photos[i]; i++) {
+        var a = document.createElement("a");
+        var image_url = "http://www.flickr.com/photos/" + photo.getAttribute("owner") + "/" + photo.getAttribute("id") + "/";
+        a.href = image_url;
+        a.addEventListener("click", showUrl);
+        var img = document.createElement("image");
+        img.src = constructImageURL(photo);
+        a.appendChild(img);
+        document.body.appendChild(a);
+    }
+}
+
+// See: http://www.flickr.com/services/api/misc.urls.html
+function constructImageURL(photo) {
+  return "http://farm" + photo.getAttribute("farm") +
+      ".static.flickr.com/" + photo.getAttribute("server") +
+      "/" + photo.getAttribute("id") +
+      "_" + photo.getAttribute("secret") +
+      "_s.jpg";
+}
+
+function showUrl(event) {
+    var url = event.currentTarget.href;
+    if (url.indexOf("http:") != 0 && url.indexOf("https:") != 0) {
+        return;
+    }
+    chrome.tabs.create({selected: true, url: url});
+    return false;
+}
+</script>

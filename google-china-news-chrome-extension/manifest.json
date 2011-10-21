@@ -1,0 +1,15 @@
+{
+  "name": "News Reader(China)",
+  "version": "1.0",
+  "description": "Displays the first 10 items from the 'Google China News - top news' RSS feed in a popup.",
+  "icons": { "128": "news_icon.png" },
+  "browser_action": {
+    "default_title": "Google China News",
+    "default_icon": "news_action.png",
+    "popup": "feed.html"
+  },
+  "permissions": [
+    "tabs",
+    "http://news.google.com/*"
+  ]
+}
